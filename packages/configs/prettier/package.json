@@ -1,0 +1,8 @@
+{
+  "name": "@wlb-form/prettier-config",
+  "version": "1.0.0",
+  "description": "wlb-form common prettier config",
+  "main": "index.json",
+  "author": "Amigo (WhiteLuckBringers)",
+  "license": "MIT"
+}

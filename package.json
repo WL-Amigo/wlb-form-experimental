@@ -1,0 +1,16 @@
+{
+  "name": "wlb-form",
+  "version": "0.0.1",
+  "description": "Form Library Experiments by WhiteLuckBringers",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "format": "pnpm run -r format"
+  },
+  "author": "Amigo (WhiteLuckBringers)",
+  "license": "MIT",
+  "devDependencies": {
+    "eslint": "^8.9.0",
+    "prettier": "^2.5.1"
+  }
+}
