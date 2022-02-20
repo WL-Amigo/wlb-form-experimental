@@ -5,6 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
+    "build:lib": "pnpm run --filter @wlb-form/* -r build",
     "format": "pnpm run -r format"
   },
   "author": "Amigo (WhiteLuckBringers)",
