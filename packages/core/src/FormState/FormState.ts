@@ -1,5 +1,9 @@
 import { klona } from 'klona';
-import { ValidationProcessor, ValidationError } from '../ValidationProcessor';
+import {
+  ValidationProcessor,
+  ValidationError,
+  RegisterValidatorFuncType,
+} from '../ValidationProcessor';
 import { Unsubscribe } from '../Events';
 import {
   getPathInclusionRelations,
@@ -11,7 +15,6 @@ import {
 } from '../SelectorOperations';
 import { getValueByPath } from '../SelectorOperations/Getter';
 import { EsMapOps } from '../EsMapOperations';
-import { IValidationRegistrator } from '../ValidationProcessor/ValidationProcessor';
 
 type ValueChangedHandler<ValueType> = (nextValue: ValueType) => void;
 type ValidationErrorChangedHandler = (message: ValidationError[]) => void;
@@ -19,9 +22,7 @@ interface FormStateSubscribeHandlers<ValueType> {
   onChange: ValueChangedHandler<ValueType>;
 }
 
-export class FormState<ObjectType extends {}>
-  implements IValidationRegistrator<ObjectType>
-{
+export class FormState<ObjectType extends {}> {
   private currentValues: ObjectType;
   private readonly pathInclusionRelationsMap = new Map<string, Set<string>>();
   private readonly valueListenersMap = new Map<
@@ -46,14 +47,22 @@ export class FormState<ObjectType extends {}>
     return klona(this.currentValues);
   }
 
-  public readonly registerValidator: IValidationRegistrator<ObjectType>['registerValidator'] =
-    (selectors, validator, relatedPathSelectors) => {
-      this.validationProcessor.register(
-        selectors,
-        validator,
-        relatedPathSelectors
-      );
-    };
+  public readonly registerValidator: RegisterValidatorFuncType<ObjectType> = (
+    selectors,
+    validator,
+    relatedPathSelectors
+  ) => {
+    this.validationProcessor.register(
+      selectors,
+      validator,
+      relatedPathSelectors
+    );
+  };
+
+  public runAllValidation() {
+    this.validationProcessor.schedule(() => {});
+    this.validationProcessor.run(this.currentValues);
+  }
 
   public subscribeValue<ValueType>(
     selector: Selector<ObjectType, ValueType>,
@@ -182,6 +191,8 @@ export class FormState<ObjectType extends {}>
     const needToRevalidatePaths = this.validationProcessor.run(
       this.currentValues
     );
+    // for root
+    needToRevalidatePaths.add('');
 
     for (const path of needToRevalidatePaths) {
       const handlers = this.errorListenersMap.get(path);

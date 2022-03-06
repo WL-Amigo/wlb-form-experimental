@@ -1,7 +1,8 @@
-import { FormState, Selector } from '@wlb-form/core';
+import { FormState, Selector, ValidationError } from '@wlb-form/core';
 
 export interface FieldHookReturns<ValueType> {
   value: ValueType;
+  error: string | null;
   setValue: (value: ValueType) => void;
 }
 
@@ -15,4 +16,5 @@ export interface FormContext<ObjectType extends {}> {
     selector: Selector<ObjectType, ValueType>,
     handler: (nextValue: ValueType) => void
   ) => void;
+  useHasSomeErrors: (selector: Selector<ObjectType, unknown>) => boolean;
 }

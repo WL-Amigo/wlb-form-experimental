@@ -55,15 +55,15 @@ interface ValidatorInfo<ValuesType> {
   readonly relatedPaths: readonly string[];
 }
 
-export interface IValidationRegistrator<ObjectType> {
-  registerValidator<SelectorsType extends SelectorTupleType<ObjectType>>(
-    selectors: SelectorsType,
-    validator: (
-      selectedValues: InferredValidatorFuncValuesType<ObjectType, SelectorsType>
-    ) => string | undefined,
-    relatedPathSelectors?: readonly Selector<ObjectType, unknown>[]
-  ): void;
-}
+export type RegisterValidatorFuncType<ObjectType extends {}> = <
+  SelectorsType extends SelectorTupleType<ObjectType>
+>(
+  selectors: SelectorsType,
+  validator: (
+    selectedValues: InferredValidatorFuncValuesType<ObjectType, SelectorsType>
+  ) => string | undefined,
+  relatedPathSelectors?: readonly Selector<ObjectType, unknown>[]
+) => void;
 
 export interface ValidationError {
   readonly paths: readonly string[];
@@ -110,9 +110,9 @@ export class ValidationProcessor<ObjectType extends {}> {
     }
   }
 
-  public schedule(affectedValuesSelector: Selector<ObjectType, any>): void {
-    const affectedPaths = getAllAccessedPaths(affectedValuesSelector);
-    affectedPaths.forEach((p) => this.validationScheduledPaths.add(p));
+  public schedule(affectedValueSelector: Selector<ObjectType, any>): void {
+    const affectedPath = getSlashJoinedFullPath(affectedValueSelector);
+    this.validationScheduledPaths.add(affectedPath);
   }
 
   private scheduleValidation(
