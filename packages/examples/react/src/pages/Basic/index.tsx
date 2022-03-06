@@ -1,4 +1,5 @@
 import { useCallback, useMemo, useState, VFC } from 'react';
+import { ErrorDisplay } from '../../components/ErrorDisplay';
 import { CheckBoxInput } from '../../components/inputs/CheckBox';
 import { SingleLineTextInput } from '../../components/inputs/SingleLineText';
 import { RenderCountContainer } from '../../components/RenderCountBadge';
@@ -7,6 +8,7 @@ import {
   FormStateProvider,
   useChildrenChanged,
   useField,
+  useHasSomeErrors,
 } from './FormContext';
 
 export const BasicExamplePage: VFC = () => {
@@ -24,6 +26,9 @@ export const BasicExamplePage: VFC = () => {
             <span></span>
             <IsConfirmedField />
           </div>
+          <div className="p-4">
+            <HasSomeErrorIndicator />
+          </div>
         </div>
         <div className="flex-1">
           <FormValuesViewer />
@@ -35,12 +40,13 @@ export const BasicExamplePage: VFC = () => {
 
 // Basic usage
 const FirstNameField: VFC = () => {
-  const { value, setValue } = useField(
+  const { value, error, setValue } = useField(
     useCallback((values) => values.firstName, [])
   );
   return (
     <RenderCountContainer>
       <SingleLineTextInput value={value} onChange={setValue} />
+      <ErrorDisplay error={error} />
     </RenderCountContainer>
   );
 };
@@ -48,10 +54,11 @@ const FirstNameField: VFC = () => {
 // Defining selector outer component
 const LastNameSelector = (values: BasicExampleFormValues) => values.lastName;
 const LastNameField: VFC = () => {
-  const { value, setValue } = useField(LastNameSelector);
+  const { value, error, setValue } = useField(LastNameSelector);
   return (
     <RenderCountContainer>
       <SingleLineTextInput value={value} onChange={setValue} />
+      <ErrorDisplay error={error} />
     </RenderCountContainer>
   );
 };
@@ -59,7 +66,11 @@ const LastNameField: VFC = () => {
 const AgeSelector = (values: BasicExampleFormValues) => values.age;
 const AgeField: VFC = () => {
   // TODO: 型変換のサポートをしたい
-  const { value: rawValue, setValue: setValueRaw } = useField(AgeSelector);
+  const {
+    value: rawValue,
+    error,
+    setValue: setValueRaw,
+  } = useField(AgeSelector);
   const localValue = useMemo(
     () => (rawValue === null ? '' : String(rawValue)),
     [rawValue]
@@ -75,6 +86,7 @@ const AgeField: VFC = () => {
   return (
     <RenderCountContainer>
       <SingleLineTextInput value={localValue} onChange={setValue} />
+      <ErrorDisplay error={error} />
     </RenderCountContainer>
   );
 };
@@ -82,14 +94,25 @@ const AgeField: VFC = () => {
 const IsConfirmedSelector = (values: BasicExampleFormValues) =>
   values.isConfirmed;
 const IsConfirmedField: VFC = () => {
-  const { value, setValue } = useField(IsConfirmedSelector);
+  const { value, error, setValue } = useField(IsConfirmedSelector);
   return (
     <RenderCountContainer>
       <label>
         <CheckBoxInput value={value} onChange={setValue} />
         <span className="pl-2">I read terms and conditions.</span>
       </label>
+      <ErrorDisplay error={error} />
     </RenderCountContainer>
+  );
+};
+
+const HasSomeErrorIndicator: VFC = () => {
+  const hasSomeError = useHasSomeErrors(useCallback((obj) => obj, []));
+
+  return hasSomeError ? (
+    <span className="text-red-400">Form has some errors.</span>
+  ) : (
+    <span className="text-green-400">Form has no error!</span>
   );
 };
 
