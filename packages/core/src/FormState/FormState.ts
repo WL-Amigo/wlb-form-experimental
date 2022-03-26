@@ -1,4 +1,9 @@
 import { klona } from 'klona';
+import {
+  ValidationProcessor,
+  ValidationError,
+  RegisterValidatorFuncType,
+} from '../ValidationProcessor';
 import { Unsubscribe } from '../Events';
 import {
   getPathInclusionRelations,
@@ -9,8 +14,10 @@ import {
   setValueBySelector,
 } from '../SelectorOperations';
 import { getValueByPath } from '../SelectorOperations/Getter';
+import { EsMapOps } from '../EsMapOperations';
 
 type ValueChangedHandler<ValueType> = (nextValue: ValueType) => void;
+type ValidationErrorChangedHandler = (message: ValidationError[]) => void;
 interface FormStateSubscribeHandlers<ValueType> {
   onChange: ValueChangedHandler<ValueType>;
 }
@@ -26,6 +33,11 @@ export class FormState<ObjectType extends {}> {
     string,
     Set<ValueChangedHandler<any>>
   >();
+  private readonly validationProcessor = new ValidationProcessor<ObjectType>();
+  private readonly errorListenersMap = new Map<
+    string,
+    Set<ValidationErrorChangedHandler>
+  >();
 
   public constructor(initialValues: ObjectType) {
     this.currentValues = klona(initialValues);
@@ -33,6 +45,23 @@ export class FormState<ObjectType extends {}> {
 
   public getCurrentValues(): ObjectType {
     return klona(this.currentValues);
+  }
+
+  public readonly registerValidator: RegisterValidatorFuncType<ObjectType> = (
+    selectors,
+    validator,
+    relatedPathSelectors
+  ) => {
+    this.validationProcessor.register(
+      selectors,
+      validator,
+      relatedPathSelectors
+    );
+  };
+
+  public runAllValidation() {
+    this.validationProcessor.schedule(() => {});
+    this.validationProcessor.run(this.currentValues);
   }
 
   public subscribeValue<ValueType>(
@@ -75,6 +104,20 @@ export class FormState<ObjectType extends {}> {
     };
   }
 
+  public subscribeErrorChanged(
+    selector: Selector<ObjectType, unknown>,
+    handler: ValidationErrorChangedHandler
+  ): Unsubscribe {
+    const pathForSelector = getSlashJoinedFullPath(selector);
+    EsMapOps.upsertSetInMap(this.errorListenersMap, pathForSelector, handler);
+
+    handler(this.validationProcessor.getErrorsForPath(pathForSelector));
+
+    return () => {
+      this.errorListenersMap.get(pathForSelector)?.delete(handler);
+    };
+  }
+
   private extendPathInclusionRelations(
     selector: Selector<ObjectType, unknown>
   ): void {
@@ -97,6 +140,7 @@ export class FormState<ObjectType extends {}> {
     setValueBySelector(selector, this.currentValues, nextValue);
     this.invokeValueChangedHandlers(selector);
     this.invokeChildrenChangedHandlers(selector);
+    this.runValidation(selector);
   }
 
   private invokeValueChangedHandlers(
@@ -117,7 +161,7 @@ export class FormState<ObjectType extends {}> {
         separateJoinedPath(relatedPath),
         this.currentValues
       );
-      handlers.forEach((h) => h(value));
+      handlers.forEach((h) => h(klona(value)));
     }
   }
 
@@ -134,11 +178,29 @@ export class FormState<ObjectType extends {}> {
         separateJoinedPath(path),
         this.currentValues
       );
-      handlers.forEach((h) => h(value));
+      handlers.forEach((h) => h(klona(value)));
     }
 
     // for root handler
     const rootHandlers = this.childrenListenersMap.get('');
     rootHandlers?.forEach((h) => h(this.currentValues));
+  }
+
+  private runValidation(selector: Selector<ObjectType, unknown>): void {
+    this.validationProcessor.schedule(selector);
+    const needToRevalidatePaths = this.validationProcessor.run(
+      this.currentValues
+    );
+    // for root
+    needToRevalidatePaths.add('');
+
+    for (const path of needToRevalidatePaths) {
+      const handlers = this.errorListenersMap.get(path);
+      if (handlers === undefined || handlers.size === 0) {
+        continue;
+      }
+      const errors = this.validationProcessor.getErrorsForPath(path);
+      handlers.forEach((h) => h(errors));
+    }
   }
 }

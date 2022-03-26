@@ -1,5 +1,9 @@
-import { assert, expect, test } from 'vitest';
-import { getPathInclusionRelations, getSlashJoinedPaths } from '..';
+import { assert, describe, expect, test } from 'vitest';
+import {
+  getAllAccessedPaths,
+  getPathInclusionRelations,
+  getSlashJoinedPaths,
+} from '..';
 import { getPath } from '../GetPaths';
 import { Selector } from '../Type';
 
@@ -131,4 +135,168 @@ test.each<[Selector<TestObject, unknown>, [string, string[]][]]>([
     expect(relatedPathsSet.size).toBe(entry[1].length);
     expect(entry[1].every((path) => relatedPathsSet.has(path))).toBe(true);
   }
+});
+
+describe('getAllAccessedPaths', () => {
+  test.each<[Selector<TestObject, unknown>, string[]]>([
+    [
+      (obj) => {
+        return {
+          a: obj.str,
+          b: obj.num,
+          c: obj.bl,
+        };
+      },
+      ['str', 'num', 'bl'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.arr,
+          b: obj.arr[0],
+          c: obj.arr[1],
+        };
+      },
+      ['arr', 'arr/0', 'arr/1'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.obj,
+          b: obj.obj.nestStr,
+          c: obj.obj.obj2.doubleNestNum,
+        };
+      },
+      ['obj', 'obj/nestStr', 'obj/obj2', 'obj/obj2/doubleNestNum'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.objArr[0]?.nestBool,
+          b: obj.objArr[1]?.nestObjArr,
+          c: obj.objArr[2]?.nestObjArr[1],
+          d: obj.objArr[2]?.nestObjArr[1]?.listInListStr,
+        };
+      },
+      [
+        'objArr',
+        'objArr/0',
+        'objArr/1',
+        'objArr/2',
+        'objArr/0/nestBool',
+        'objArr/1/nestObjArr',
+        'objArr/2/nestObjArr',
+        'objArr/2/nestObjArr/1',
+        'objArr/2/nestObjArr/1/listInListStr',
+      ],
+    ],
+    [
+      (obj) => {
+        const cacheArrayAccess = obj.objArr[2]?.nestObjArr[1];
+        return {
+          a: obj.objArr[0]?.nestBool,
+          b: obj.objArr[1]?.nestObjArr,
+          c: cacheArrayAccess,
+          d: cacheArrayAccess?.listInListStr,
+        };
+      },
+      [
+        'objArr',
+        'objArr/0',
+        'objArr/1',
+        'objArr/2',
+        'objArr/0/nestBool',
+        'objArr/1/nestObjArr',
+        'objArr/2/nestObjArr',
+        'objArr/2/nestObjArr/1',
+        'objArr/2/nestObjArr/1/listInListStr',
+      ],
+    ],
+  ])('all accessed paths are available', (selector, expectedPathsOriginal) => {
+    // Arrange/Act
+    const paths = getAllAccessedPaths(selector, true);
+    paths.sort();
+
+    // Assert
+    const expectedPaths = [...expectedPathsOriginal].sort();
+    expect(paths).toStrictEqual(expectedPaths);
+  });
+
+  test.each<[Selector<TestObject, unknown>, string[]]>([
+    [
+      (obj) => {
+        return {
+          a: obj.str,
+          b: obj.num,
+          c: obj.bl,
+        };
+      },
+      ['str', 'num', 'bl'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.arr,
+          b: obj.arr[0],
+          c: obj.arr[1],
+        };
+      },
+      ['arr', 'arr/0', 'arr/1'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.obj,
+          b: obj.obj.nestStr,
+          c: obj.obj.obj2.doubleNestNum,
+        };
+      },
+      ['obj', 'obj/nestStr', 'obj/obj2/doubleNestNum'],
+    ],
+    [
+      (obj) => {
+        return {
+          a: obj.objArr[0]?.nestBool,
+          b: obj.objArr[1]?.nestObjArr,
+          c: obj.objArr[2]?.nestObjArr[1],
+          d: obj.objArr[2]?.nestObjArr[1]?.listInListStr,
+        };
+      },
+      [
+        'objArr/0/nestBool',
+        'objArr/1/nestObjArr',
+        'objArr/2/nestObjArr/1',
+        'objArr/2/nestObjArr/1/listInListStr',
+      ],
+    ],
+    // problematic case
+    [
+      (obj) => {
+        const cacheArrayAccess = obj.objArr[2]?.nestObjArr[1];
+        return {
+          a: obj.objArr[0]?.nestBool,
+          b: obj.objArr[1]?.nestObjArr,
+          c: cacheArrayAccess,
+          d: cacheArrayAccess?.listInListStr,
+        };
+      },
+      [
+        'objArr/0/nestBool',
+        'objArr/1/nestObjArr',
+        // 'objArr/2/nestObjArr/1' is missing
+        'objArr/2/nestObjArr/1/listInListStr',
+      ],
+    ],
+  ])(
+    'all accessed paths are available (but parent accesses are excluded)',
+    (selector, expectedPathsOriginal) => {
+      // Arrange/Act
+      const paths = getAllAccessedPaths(selector);
+      paths.sort();
+
+      // Assert
+      const expectedPaths = [...expectedPathsOriginal].sort();
+      expect(paths).toStrictEqual(expectedPaths);
+    }
+  );
 });

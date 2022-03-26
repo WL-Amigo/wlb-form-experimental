@@ -1,4 +1,4 @@
-import { FormState, Selector } from '@wlb-form/core';
+import { FormState, Selector, RegisterValidatorFuncType } from '@wlb-form/core';
 import {
   createContext,
   PropsWithChildren,
@@ -14,14 +14,34 @@ import {
 } from 'react';
 import { FieldHookReturns, FormContext } from './Types';
 
+export type SetupFormFuncType<ObjectType extends {}> = (setup: {
+  registerValidator: RegisterValidatorFuncType<ObjectType>;
+}) => void;
+
 export const createFormContext = <ObjectType extends {}>(
-  initialValues: ObjectType
+  initialValues: ObjectType,
+  setup?: SetupFormFuncType<ObjectType>
 ): FormContext<ObjectType> => {
   const context = createContext<FormState<ObjectType> | undefined>(undefined);
   const RawProvider = context.Provider;
 
   const FormStateProvider: VFC<PropsWithChildren<{}>> = ({ children }) => {
-    const [formState] = useState(() => new FormState(initialValues));
+    const [formState] = useState(() => {
+      const formState = new FormState(initialValues);
+      if (setup !== undefined) {
+        setup({
+          registerValidator: (selectors, validator, relatedPathSelectors) =>
+            formState.registerValidator(
+              selectors,
+              validator,
+              relatedPathSelectors
+            ),
+        });
+        formState.runAllValidation();
+      }
+
+      return formState;
+    });
     return createElement(RawProvider, { value: formState }, children);
   };
 
@@ -43,7 +63,7 @@ export const createFormContext = <ObjectType extends {}>(
       selector(formState.getCurrentValues())
     );
     useEffect(() => {
-      return formState.subscribeValue(selector, (nextValue) => {
+      return formState.subscribeChildrenChanged(selector, (nextValue) => {
         setValueRaw(nextValue);
       });
     }, [formState, selector]);
@@ -54,8 +74,16 @@ export const createFormContext = <ObjectType extends {}>(
       [formState, selector]
     );
 
+    const [error, setError] = useState<string | null>(null);
+    useEffect(() => {
+      return formState.subscribeErrorChanged(selector, (errors) =>
+        setError(errors[0]?.errors[0] ?? null)
+      );
+    }, [formState, selector]);
+
     return {
       value,
+      error,
       setValue,
     };
   };
@@ -70,10 +98,25 @@ export const createFormContext = <ObjectType extends {}>(
     }, [formState, selector, handler]);
   };
 
+  const useHasSomeErrors = (
+    selector: Selector<ObjectType, unknown>
+  ): boolean => {
+    const formState = useFormState();
+    const [hasErrors, setHasErrors] = useState<boolean>(false);
+    useEffect(() => {
+      return formState.subscribeErrorChanged(selector, (e) =>
+        setHasErrors(e.length > 0)
+      );
+    });
+
+    return hasErrors;
+  };
+
   return {
     FormStateProvider,
     useField,
     useFormState,
     useChildrenChanged,
+    useHasSomeErrors,
   };
 };
