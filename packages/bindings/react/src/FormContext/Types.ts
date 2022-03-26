@@ -1,4 +1,5 @@
 import { FormState, Selector, ValidationError } from '@wlb-form/core';
+import { VFC, PropsWithChildren } from 'react';
 
 export interface FieldHookReturns<ValueType> {
   value: ValueType;
@@ -7,7 +8,7 @@ export interface FieldHookReturns<ValueType> {
 }
 
 export interface FormContext<ObjectType extends {}> {
-  FormStateProvider: any;
+  FormStateProvider: VFC<PropsWithChildren<{}>>;
   useFormState: () => FormState<ObjectType>;
   useField: <ValueType>(
     selector: Selector<ObjectType, ValueType>
