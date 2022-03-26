@@ -63,7 +63,7 @@ export const createFormContext = <ObjectType extends {}>(
       selector(formState.getCurrentValues())
     );
     useEffect(() => {
-      return formState.subscribeValue(selector, (nextValue) => {
+      return formState.subscribeChildrenChanged(selector, (nextValue) => {
         setValueRaw(nextValue);
       });
     }, [formState, selector]);
@@ -79,7 +79,7 @@ export const createFormContext = <ObjectType extends {}>(
       return formState.subscribeErrorChanged(selector, (errors) =>
         setError(errors[0]?.errors[0] ?? null)
       );
-    }, [formState]);
+    }, [formState, selector]);
 
     return {
       value,

@@ -161,7 +161,7 @@ export class FormState<ObjectType extends {}> {
         separateJoinedPath(relatedPath),
         this.currentValues
       );
-      handlers.forEach((h) => h(value));
+      handlers.forEach((h) => h(klona(value)));
     }
   }
 
@@ -178,7 +178,7 @@ export class FormState<ObjectType extends {}> {
         separateJoinedPath(path),
         this.currentValues
       );
-      handlers.forEach((h) => h(value));
+      handlers.forEach((h) => h(klona(value)));
     }
 
     // for root handler
