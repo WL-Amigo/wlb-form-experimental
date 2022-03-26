@@ -3,11 +3,11 @@ export const upsertArrayInMap = <KeyType, ItemType>(
   key: KeyType,
   ...item: ItemType[]
 ) => {
-  const existingItem = targetMap.get(key);
-  if (existingItem === undefined) {
+  const existingArray = targetMap.get(key);
+  if (existingArray === undefined) {
     targetMap.set(key, [...item]);
   } else {
-    existingItem.push(...item);
+    existingArray.push(...item);
   }
 };
 
