@@ -134,11 +134,19 @@ export class ValidationProcessor<ObjectType extends {}> {
       for (const path of allIncludedPaths) {
         const viList = this.pathToValidatorMap.get(path);
         if (viList !== undefined) {
-          EsMapOps.upsertSetInMap(
-            scheduledPathToValidatorMap,
-            restoreIndexedPathFromWildcardPath(path, indices),
-            ...viList
-          );
+          for (const vi of viList) {
+            const relatedPaths = vi.relatedPaths;
+            relatedPaths.forEach((relatedPath) => {
+              const interpolatedPaths =
+                this.generateAllArrayValidationTargetPaths(
+                  restoreIndexedPathFromWildcardPath(relatedPath, indices),
+                  nextValues
+                );
+              interpolatedPaths.forEach((p) =>
+                EsMapOps.upsertSetInMap(scheduledPathToValidatorMap, p, vi)
+              );
+            });
+          }
         }
       }
 
@@ -148,7 +156,7 @@ export class ValidationProcessor<ObjectType extends {}> {
       //   * 含まれる: nextValues から対象パスに格納されている配列を取り出し、その配列の長さの分のバリデーションをスケジュール
       const childrenValidationPaths = [
         ...this.pathToValidatorMap.keys(),
-      ].filter((p) => p.startsWith(wildcardPath));
+      ].filter((p) => p !== wildcardPath && p.startsWith(wildcardPath));
       for (const path of childrenValidationPaths) {
         const viList = this.pathToValidatorMap.get(path)!;
         const actualValidationTargetPath = restoreIndexedPathFromWildcardPath(
@@ -233,9 +241,15 @@ export class ValidationProcessor<ObjectType extends {}> {
 
       const validationErrorList = validatorInfoList
         .map((vi): ValidationError | undefined => {
-          const valuePaths = vi.relatedPaths.map((p) =>
+          const valuePaths = vi.selectPaths.map((p) =>
             restoreIndexedPathFromWildcardPath(p, indices)
           );
+          // もしパスを完全に復元できない場合(複数値バリデーションであり得る)、
+          // バリデーション関数に無効値を渡してしまう可能性があるため、
+          // バリデーションの実行を取りやめる
+          if (valuePaths.some((p) => p.includes('*'))) {
+            return undefined;
+          }
           const values = valuePaths.map((p) =>
             getValueByPath(separateJoinedPath(p), nextValues)
           );
@@ -243,7 +257,9 @@ export class ValidationProcessor<ObjectType extends {}> {
           return validationResult === undefined
             ? undefined
             : {
-                paths: valuePaths,
+                paths: vi.relatedPaths.map((p) =>
+                  restoreIndexedPathFromWildcardPath(p, indices)
+                ),
                 errors: [validationResult],
               };
         })
